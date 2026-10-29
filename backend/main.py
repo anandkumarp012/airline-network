@@ -51,7 +51,7 @@ def get_routes():
 
 @app.get("/api/routes/{source}/{destination}")
 def get_route(source: str, destination: str):
-    result = service.get_direct_route(source.upper(), destination.upper())
+    result = service.get_direct_route(source, destination)
     if not result:
         raise HTTPException(status_code=404, detail="Airport pair not found")
     return result
@@ -105,7 +105,7 @@ def get_centrality_metric(metric: str):
 
 @app.get("/api/shortest-path")
 def get_shortest_path(source: str, destination: str):
-    result = service.get_shortest_path(source.upper(), destination.upper())
+    result = service.get_shortest_path(source, destination)
     return result
 
 

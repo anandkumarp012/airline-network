@@ -5,6 +5,23 @@ import Loading from '../components/Loading';
 import RouteMap from '../components/RouteMap';
 import { useInitialLoading } from '../components/InitialLoadingContext';
 
+function getPath(route) {
+  return Array.isArray(route?.path) ? route.path : [];
+}
+
+function formatDistance(route) {
+  const value = Number(route?.total_distance_km ?? route?.distance_km ?? route?.route_distance);
+  return Number.isFinite(value) ? `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })} km` : 'Unavailable';
+}
+
+function formatCalculationMethod(method) {
+  return {
+    weighted: 'Weighted shortest path',
+    unweighted: 'Unweighted shortest path',
+    'geographic-distance-estimate': 'Estimated geographic distance',
+  }[method] || 'Unavailable';
+}
+
 export default function RouteExplorer() {
   const [airports, setAirports] = useState([]);
   const [network, setNetwork] = useState({ nodes: [], edges: [] });
@@ -38,19 +55,27 @@ export default function RouteExplorer() {
   }, []);
 
   const handleCheckRoute = async () => {
+    setError('');
     setRouteLoading(true);
     try {
-      const res = await api.get(`/routes/${source}/${destination}`);
+      const res = await api.get('/shortest-path', {
+        params: { source, destination },
+      });
       setRoute(res.data);
       setFitSignal((signal) => signal + 1);
     } catch (err) {
-      setRoute({ direct_connection: false, source, destination, route_distance: null, message: 'No direct route found in the analyzed network.' });
+      setRoute({
+        exists: false,
+        source,
+        destination,
+        message: err.response?.data?.detail || 'Unable to calculate the route.',
+      });
     } finally {
       setRouteLoading(false);
     }
   };
 
-  const selectedPath = route?.direct_connection ? [route.source, route.destination] : [];
+  const selectedPath = route?.exists ? getPath(route) : [];
   const selectedAirportData = selectedAirport || network.nodes.find((node) => node.id === source);
 
   if (loading) return <Loading message="Loading route explorer..." />;
@@ -74,11 +99,11 @@ export default function RouteExplorer() {
             </select>
           </label>
           <div className="flex items-end">
-            <button onClick={handleCheckRoute} disabled={routeLoading || source === destination} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"><RouteIcon size={16}/> {routeLoading ? 'Checking...' : 'Check Route'}</button>
+            <button onClick={handleCheckRoute} disabled={routeLoading} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 font-medium text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"><RouteIcon size={16}/> {routeLoading ? 'Checking...' : 'Check Route'}</button>
           </div>
         </div>
         {source === destination && (
-          <div className="mt-3 text-sm text-amber-700">Choose two different airports to inspect a route.</div>
+          <div className="mt-3 text-sm text-amber-700">The selected airport is both the source and destination.</div>
         )}
       </div>
 
@@ -104,12 +129,24 @@ export default function RouteExplorer() {
           {route ? (
             <div className="space-y-3">
               <div className="text-xs uppercase tracking-[0.15em] text-slate-400">Route Details</div>
-              <div className="text-2xl font-semibold text-white">{route.source} → {route.destination}</div>
-              <div className="text-slate-300">{route.direct_connection ? 'Direct Connection' : 'No direct route found in the analyzed network.'}</div>
-              <div className="text-slate-300">Route Distance: {route.route_distance !== null ? `${Number(route.route_distance).toFixed(2)} km` : '—'}</div>
+              <div className="text-2xl font-semibold text-white">{route.source || source} → {route.destination || destination}</div>
+              {route.exists ? (
+                <>
+                  <div className="text-slate-300">{getPath(route).length ? getPath(route).join(' → ') : 'Unavailable'}</div>
+                  <div className="text-slate-300">Route Distance: {formatDistance(route)}</div>
+                  <div className="text-slate-300">
+                    Stops: {Number.isInteger(route.intermediate_stops) ? route.intermediate_stops : Math.max(0, getPath(route).length - 2)}
+                    {' · '}Edges: {Number.isInteger(route.edges) ? route.edges : Math.max(0, getPath(route).length - 1)}
+                  </div>
+                  <div className="text-slate-400">Calculation: {formatCalculationMethod(route.calculation_method)}</div>
+                  <div className="text-slate-400">{route.message || 'Route calculated from the analyzed graph.'}</div>
+                </>
+              ) : (
+                <div className="text-red-200">{route.message}</div>
+              )}
             </div>
           ) : (
-            <div className="text-slate-400">Select a valid pair of airports to inspect their direct connection.</div>
+            <div className="text-slate-400">Select airports and calculate a graph route.</div>
           )}
           {selectedAirportData && (
             <div className="mt-6 border-t border-sky-100 pt-4">

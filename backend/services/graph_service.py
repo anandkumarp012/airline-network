@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import networkx as nx
 import pandas as pd
@@ -9,11 +9,17 @@ from networkx.algorithms.community import greedy_modularity_communities
 
 try:
     from services.data_service import build_indian_network_data
+    from utils.distance import haversine_km
 except ImportError:  # pragma: no cover
     from backend.services.data_service import build_indian_network_data
+    from backend.utils.distance import haversine_km
 
 
 class NetworkGraphService:
+    @staticmethod
+    def _normalize_airport_code(value: Any) -> str:
+        return str(value or "").strip().upper()
+
     @staticmethod
     def _safe_float(value: Any, default: float = 0.0) -> float:
         try:
@@ -143,6 +149,8 @@ class NetworkGraphService:
         }
 
     def get_direct_route(self, source: str, destination: str):
+        source = self._normalize_airport_code(source)
+        destination = self._normalize_airport_code(destination)
         if source not in self.graph or destination not in self.graph:
             return None
         if self.graph.has_edge(source, destination):
@@ -160,18 +168,162 @@ class NetworkGraphService:
         }
 
     def get_shortest_path(self, source: str, destination: str):
+        source = self._normalize_airport_code(source)
+        destination = self._normalize_airport_code(destination)
         if source not in self.graph or destination not in self.graph:
-            return {"exists": False, "message": "Invalid airport selection."}
-        try:
-            path = nx.shortest_path(self.graph, source=source, target=destination, weight="weight")
-            distance = nx.shortest_path_length(self.graph, source=source, target=destination, weight="weight")
+            invalid = [
+                airport
+                for airport in (source, destination)
+                if airport not in self.graph
+            ]
             return {
-                "exists": True,
-                "path": path,
-                "distance_km": float(distance),
+                "exists": False,
+                "source": source,
+                "destination": destination,
+                "error_code": "invalid_airport",
+                "message": f"Unknown airport code(s): {', '.join(invalid)}.",
             }
+
+        weighted = all(
+            self._is_valid_edge_weight(data.get("weight"))
+            for _, _, data in self.graph.edges(data=True)
+        )
+        calculation_method = "weighted" if weighted else "unweighted"
+
+        if source == destination:
+            path = [source]
+            return {
+                **self._path_response(
+                    source,
+                    destination,
+                    path,
+                    calculation_method=calculation_method,
+                    path_weight=0.0,
+                ),
+                "message": "Source and destination are the same airport.",
+            }
+
+        try:
+            weight = "weight" if weighted else None
+            path = nx.shortest_path(
+                self.graph,
+                source=source,
+                target=destination,
+                weight=weight,
+            )
+            path_weight = nx.shortest_path_length(
+                self.graph,
+                source=source,
+                target=destination,
+                weight=weight,
+            )
+            return self._path_response(
+                source,
+                destination,
+                path,
+                calculation_method=calculation_method,
+                path_weight=float(path_weight),
+            )
         except nx.NetworkXNoPath:
-            return {"exists": False, "message": "No path exists between the selected airports."}
+            return {
+                "exists": False,
+                "source": source,
+                "destination": destination,
+                "error_code": "no_path",
+                "message": "No path exists between the selected airports.",
+            }
+
+    @staticmethod
+    def _is_valid_edge_weight(value: Any) -> bool:
+        try:
+            weight = float(value)
+        except (TypeError, ValueError):
+            return False
+        return math.isfinite(weight) and weight >= 0
+
+    def _path_response(
+        self,
+        source: str,
+        destination: str,
+        path: list[str],
+        calculation_method: str,
+        path_weight: float,
+    ):
+        weighted = calculation_method == "weighted"
+        airports = [
+            {
+                "iata": airport,
+                "name": self._safe_value(self.graph.nodes[airport].get("name")),
+                "city": self._safe_value(self.graph.nodes[airport].get("city")),
+                "latitude": self._safe_coordinate(self.graph.nodes[airport].get("latitude")),
+                "longitude": self._safe_coordinate(self.graph.nodes[airport].get("longitude")),
+            }
+            for airport in path
+        ]
+        geographic_distance = self._geographic_path_distance(path)
+        has_geographic_distance = geographic_distance is not None
+        if not weighted and has_geographic_distance:
+            calculation_method = "geographic-distance-estimate"
+        total_distance = path_weight if weighted else geographic_distance
+        distance_message = (
+            "Distance is an estimated geographic distance from airport coordinates; "
+            "it is not a scheduled flight distance."
+            if calculation_method == "geographic-distance-estimate"
+            else None
+        )
+        return {
+            "exists": True,
+            "source": source,
+            "destination": destination,
+            "path": path,
+            "airports": airports,
+            "edges": max(len(path) - 1, 0),
+            "intermediate_stops": max(len(path) - 2, 0),
+            "total_distance_km": total_distance,
+            "distance_km": total_distance,
+            "path_weight": path_weight,
+            "calculation_method": calculation_method,
+            "route_type": "graph_route",
+            "message": distance_message or (
+                "Route calculated from the analyzed airport graph; "
+                "this is not a guaranteed scheduled airline itinerary."
+            ),
+        }
+
+    @staticmethod
+    def _safe_coordinate(value: Any):
+        try:
+            coordinate = float(value)
+        except (TypeError, ValueError):
+            return None
+        return coordinate if math.isfinite(coordinate) else None
+
+    def _geographic_path_distance(self, path: list[str]):
+        coordinates = [
+            (
+                self._safe_coordinate(self.graph.nodes[airport].get("latitude")),
+                self._safe_coordinate(self.graph.nodes[airport].get("longitude")),
+            )
+            for airport in path
+        ]
+        if any(latitude is None or longitude is None for latitude, longitude in coordinates):
+            return None
+        if any(
+            not -90 <= latitude <= 90 or not -180 <= longitude <= 180
+            for latitude, longitude in coordinates
+        ):
+            return None
+        distance = sum(
+            haversine_km(
+                source_latitude,
+                source_longitude,
+                destination_latitude,
+                destination_longitude,
+            )
+            for (source_latitude, source_longitude), (destination_latitude, destination_longitude)
+            in zip(coordinates, coordinates[1:])
+        )
+        return distance if math.isfinite(distance) else None
 
     def get_metric_series(self, metric_name: str, limit: int = 10):
         metric_map = {

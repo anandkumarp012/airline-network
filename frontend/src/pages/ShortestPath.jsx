@@ -5,6 +5,23 @@ import Loading from '../components/Loading';
 import RouteMap from '../components/RouteMap';
 import { useInitialLoading } from '../components/InitialLoadingContext';
 
+function hasFiniteDistance(value) {
+  return Number.isFinite(Number(value));
+}
+
+function formatDistance(result) {
+  const value = Number(result?.total_distance_km ?? result?.distance_km);
+  return hasFiniteDistance(value) ? `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })} km` : 'Unavailable';
+}
+
+function formatCalculationMethod(method) {
+  return {
+    weighted: 'Weighted shortest path',
+    unweighted: 'Unweighted shortest path',
+    'geographic-distance-estimate': 'Estimated geographic distance',
+  }[method] || 'Unavailable';
+}
+
 export default function ShortestPath() {
   const [airports, setAirports] = useState([]);
   const [source, setSource] = useState('HYD');
@@ -34,17 +51,21 @@ export default function ShortestPath() {
 
   const handleFindPath = async () => {
     if (source === destination) {
-      setResult({ exists: false, message: 'Source and destination must be different airports.' });
-      return;
+      setResult(null);
     }
 
     setRouteLoading(true);
     try {
-      const res = await api.get(`/shortest-path?source=${source}&destination=${destination}`);
+      const res = await api.get('/shortest-path', {
+        params: { source, destination },
+      });
       setResult(res.data);
       setFitSignal((signal) => signal + 1);
     } catch (err) {
-      setResult({ exists: false, message: 'No path exists between the selected airports.' });
+      setResult({
+        exists: false,
+        message: err.response?.data?.detail || 'Unable to calculate the shortest path.',
+      });
     } finally {
       setRouteLoading(false);
     }
@@ -105,9 +126,14 @@ export default function ShortestPath() {
             result.exists ? (
               <div className="space-y-3">
                 <div className="text-xs uppercase tracking-[0.15em] text-slate-400">Optimal Path</div>
-                <div className="text-2xl font-semibold text-white">{result.path.join(' → ')}</div>
-                <div className="text-slate-300">Total Network Distance: {Number(result.distance_km).toFixed(2)} km</div>
-                <div className="text-slate-300">Locations visited: {result.path.length}</div>
+                <div className="text-2xl font-semibold text-white">{Array.isArray(result.path) && result.path.length ? result.path.join(' → ') : 'Unavailable'}</div>
+                <div className="text-slate-300">Total Network Distance: {formatDistance(result)}</div>
+                <div className="text-slate-300">
+                  Stops: {Number.isInteger(result.intermediate_stops) ? result.intermediate_stops : Math.max(0, (result.path?.length || 0) - 2)}
+                  {' · '}Edges: {Number.isInteger(result.edges) ? result.edges : Math.max(0, (result.path?.length || 0) - 1)}
+                </div>
+                <div className="text-slate-400">Calculation: {formatCalculationMethod(result.calculation_method)}</div>
+                <div className="text-slate-400">{result.message}</div>
               </div>
             ) : (
               <div className="text-red-200">{result.message}</div>

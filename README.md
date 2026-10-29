@@ -112,6 +112,23 @@ The FastAPI app exposes:
 - GET /api/statistics
 - GET /api/insights
 
+`/api/shortest-path` accepts `source` and `destination` IATA codes as query
+parameters. Successful responses include the ordered `path`, airport metadata,
+`edges`, `intermediate_stops`, `total_distance_km`, `path_weight`, and
+`calculation_method`. A weighted result uses the graph's distance attributes;
+when weights are unavailable, the graph path is found unweighted and valid
+coordinates are used for an explicitly labelled geographic-distance estimate.
+If coordinates are unavailable, `total_distance_km` is `null`. Routes describe
+connections in the analyzed graph and are not guaranteed scheduled airline
+itineraries.
+
+For production, set `VITE_API_URL` to the backend host with the `/api` prefix,
+for example:
+
+```env
+VITE_API_URL=https://airline-network-api.onrender.com/api
+```
+
 ## Screenshots
 
 Add screenshots from the running app here.
