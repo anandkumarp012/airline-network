@@ -1,0 +1,182 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #0f172a;
+  background: #ffffff;
+  font-family: Inter, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  min-height: 100%;
+  min-width: 0;
+  background: #ffffff;
+}
+
+body {
+  min-height: 100vh;
+  background: #ffffff;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0f9ff;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #bae6fd;
+  border-radius: 9999px;
+}
+
+button, a, input, select {
+  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+/* Keep the existing utility markup while translating its original dark palette. */
+.bg-slate-950, .bg-slate-950\/75, .bg-slate-950\/80, .bg-slate-950\/90 {
+  background-color: #ffffff !important;
+}
+
+.bg-slate-900, .bg-slate-900\/60, .bg-slate-900\/70, .bg-slate-900\/80 {
+  background-color: #f0f9ff !important;
+}
+
+.text-white {
+  color: #0f172a !important;
+}
+
+.text-slate-100, .text-slate-200, .text-slate-300 {
+  color: #475569 !important;
+}
+
+.text-slate-400, .text-slate-500 {
+  color: #64748b !important;
+}
+
+.border-slate-700, .border-slate-700\/80, .border-slate-800 {
+  border-color: #bae6fd !important;
+}
+
+.border-transparent:hover, .hover\:border-slate-700:hover {
+  border-color: #7dd3fc !important;
+}
+
+.hover\:bg-slate-900\/80:hover, .hover\:bg-slate-900\/60:hover {
+  background-color: #e0f2fe !important;
+}
+
+.hover\:text-white:hover {
+  color: #0284c7 !important;
+}
+
+.bg-cyan-500 {
+  background-color: #0ea5e9 !important;
+}
+
+.bg-cyan-500\/10, .bg-cyan-500\/15 {
+  background-color: #e0f2fe !important;
+}
+
+.text-cyan-200, .text-cyan-300 {
+  color: #0284c7 !important;
+}
+
+.border-cyan-500\/30, .border-cyan-500\/40, .border-cyan-400\/20 {
+  border-color: #bae6fd !important;
+}
+
+.focus\:ring-cyan-500:focus, .focus\:border-cyan-500:focus {
+  border-color: #0ea5e9 !important;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18) !important;
+}
+
+.sidebar-link {
+  transition: all 180ms ease;
+}
+
+.card-surface {
+  background: #ffffff;
+  border: 1px solid #bae6fd;
+  box-shadow: 0 8px 24px rgba(14, 165, 233, 0.08);
+  transition: box-shadow 180ms ease, transform 180ms ease;
+}
+
+.card-surface:hover {
+  box-shadow: 0 12px 30px rgba(14, 165, 233, 0.14);
+}
+
+.grid-graph {
+  background-image:
+    linear-gradient(rgba(14, 165, 233, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14, 165, 233, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.airport-marker-wrapper {
+  background: transparent;
+  border: 0;
+}
+
+.airport-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.airport-marker-default {
+  width: 12px;
+  height: 12px;
+  border: 3px solid #ffffff;
+  background: #0ea5e9;
+  box-shadow: 0 1px 5px rgba(15, 23, 42, 0.25);
+}
+
+.airport-marker-source,
+.airport-marker-destination {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #ffffff;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.3);
+}
+
+.airport-marker-source {
+  background: #0284c7;
+}
+
+.airport-marker-destination {
+  background: #0f172a;
+}
+
+.airport-marker-intermediate {
+  width: 16px;
+  height: 16px;
+  border: 3px solid #ffffff;
+  background: #38bdf8;
+  box-shadow: 0 1px 6px rgba(15, 23, 42, 0.25);
+}
+
+.leaflet-container {
+  font-family: inherit;
+}
